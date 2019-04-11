@@ -3,8 +3,9 @@ package log
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -31,6 +32,8 @@ type FileWriter struct {
 	filewriter *bufio.Writer
 	logticker  *time.Ticker
 	inittime   time.Duration
+
+	Formater func(log *Log) string
 }
 
 func (w *FileWriter) Write(p []byte) (n int, err error) {
@@ -44,7 +47,72 @@ func (w *FileWriter) Write(p []byte) (n int, err error) {
 	}
 	w.currFileSize += n
 	if err != nil {
-		log.Printf("logfile Write failed: %v", err)
+		fmt.Printf("logfile Write failed: %v\n", err)
+	}
+	if w.SaveEach {
+		w.save()
+	}
+	return n, err
+}
+
+func (w *FileWriter) WriteLog(log *Log) (n int, err error) {
+	w.Lock()
+	defer w.Unlock()
+
+	value := log.Value
+
+	if w.Formater != nil {
+		value = w.Formater(log)
+	} else {
+		_, file, line, ok := runtime.Caller(log.Depth + 1)
+		if !ok {
+			file = "???"
+			line = -1
+		} else {
+			if log.Logger.FullPath {
+				for _, v := range filepaths {
+					tmp := strings.Replace(file, v, "", 1)
+					if tmp != file {
+						file = tmp
+						break
+					}
+				}
+			} else {
+				pos := strings.LastIndex(file, "/")
+				if pos >= 0 {
+					file = file[pos+1:]
+				}
+			}
+		}
+
+		switch log.Level {
+		case LEVEL_PRINT:
+
+		case LEVEL_DEBUG:
+			value = strings.Join([]string{log.Now.Format(log.Logger.Layout), fmt.Sprintf(" [Debug] [%s:%d] ", file, line), log.Value, "\n"}, "")
+		case LEVEL_INFO:
+			value = strings.Join([]string{log.Now.Format(log.Logger.Layout), fmt.Sprintf(" [ Info] [%s:%d] ", file, line), log.Value, "\n"}, "")
+		case LEVEL_WARN:
+			value = strings.Join([]string{log.Now.Format(log.Logger.Layout), fmt.Sprintf(" [ Warn] [%s:%d] ", file, line), log.Value, "\n"}, "")
+		case LEVEL_ERROR:
+			value = strings.Join([]string{log.Now.Format(log.Logger.Layout), fmt.Sprintf(" [Error] [%s:%d] ", file, line), log.Value, "\n"}, "")
+		case LEVEL_PANIC:
+			value = strings.Join([]string{log.Now.Format(log.Logger.Layout), fmt.Sprintf(" [Panic] [%s:%d] ", file, line), log.Value, "\n"}, "")
+		case LEVEL_FATAL:
+			value = strings.Join([]string{log.Now.Format(log.Logger.Layout), fmt.Sprintf(" [Fatal] [%s:%d] ", file, line), log.Value, "\n"}, "")
+		default:
+		}
+	}
+
+	w.checkFileWithLog(log, len(value))
+	if w.EnableBufio {
+		n, err = w.filewriter.WriteString(value)
+	} else {
+		n, err = w.logfile.WriteString(value)
+	}
+	w.currFileSize += n
+	if err != nil {
+		fmt.Printf("logfile Write failed: %v\n", err)
 	}
 	if w.SaveEach {
 		w.save()
@@ -63,12 +131,16 @@ func (w *FileWriter) WriteString(str string) (n int, err error) {
 	}
 	w.currFileSize += n
 	if err != nil {
-		log.Printf("logfile WriteString failed:: %v", err)
+		fmt.Printf("logfile WriteString failed: %v\n", err)
 	}
 	if w.SaveEach {
 		w.save()
 	}
 	return n, err
+}
+
+func (w *FileWriter) SetFormater(f func(log *Log) string) {
+	w.Formater = f
 }
 
 func (w *FileWriter) Save() {
@@ -92,7 +164,7 @@ func (w *FileWriter) newFile(path string) error {
 			}
 		}
 	} else {
-		log.Printf("logfile newFile failed: %s, %s", path, err.Error())
+		fmt.Printf("logfile newFile failed: %s, %s\n", path, err.Error())
 	}
 	return err
 }
@@ -108,7 +180,7 @@ func (w *FileWriter) checkFileWithData(data []byte) bool {
 	if w.TimePrefix != "" {
 		now, err = time.Parse(w.TimePrefix, string(data[w.TimeBegin:w.TimeBegin+len(w.TimePrefix)]))
 		if err != nil {
-			log.Printf("logfile time.Parse(%s) failed: %s", string(data[:len(w.TimePrefix)]), err.Error())
+			fmt.Printf("logfile time.Parse(%s) failed: %s\n", string(data[:len(w.TimePrefix)]), err.Error())
 			return false
 		}
 	} else {
@@ -163,6 +235,66 @@ func (w *FileWriter) checkFileWithData(data []byte) bool {
 	return err == nil
 }
 
+func (w *FileWriter) checkFileWithLog(log *Log, size int) bool {
+	var (
+		err      error = nil
+		now            = log.Now
+		filename       = ""
+		currfile       = ""
+	)
+
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	filename = now.Format(w.FileFormat)
+
+	if !w.inited {
+		w.Init(now)
+	}
+
+	currdir := w.RootDir
+	if w.DirFormat != "" {
+		currdir += now.Format(w.DirFormat)
+	}
+	if w.currdir != currdir {
+		w.currdir = currdir
+		err = w.makeDir(currdir)
+	}
+
+	if w.currFileIdx == 0 {
+		currfile = currdir + filename
+	} else {
+		currfile = fmt.Sprintf("%s%s.%04d", currdir, filename, w.currFileIdx)
+	}
+
+	if w.currfile != currfile {
+		w.currFileIdx = 0
+		w.currFileSize = 0
+		w.currfile = currfile
+
+		// w.save()
+		if w.logfile != nil {
+			w.logfile.Close()
+		}
+
+		err = w.newFile(w.currfile)
+	} else if w.MaxFileSize > 0 && w.currFileSize+size > w.MaxFileSize {
+		w.currFileIdx++
+		w.currFileSize = 0
+		w.currfile = fmt.Sprintf("%s%s.%04d", currdir, filename, w.currFileIdx)
+
+		// w.save()
+		if w.logfile != nil {
+			w.logfile.Close()
+		}
+
+		err = w.newFile(w.currfile)
+	}
+
+	return err == nil
+}
+
 func (w *FileWriter) checkFileWithString(str string) bool {
 	var (
 		err      error = nil
@@ -174,7 +306,7 @@ func (w *FileWriter) checkFileWithString(str string) bool {
 	if w.TimePrefix != "" {
 		now, err = time.Parse(w.TimePrefix, str[w.TimeBegin:w.TimeBegin+len(w.TimePrefix)])
 		if err != nil {
-			log.Printf("logfile time.Parse(%s) failed: %s", str[:len(w.TimePrefix)], err.Error())
+			fmt.Printf("logfile time.Parse(%s) failed: %s\n", str[:len(w.TimePrefix)], err.Error())
 			return false
 		}
 	} else {
@@ -232,7 +364,7 @@ func (w *FileWriter) checkFileWithString(str string) bool {
 func (w *FileWriter) makeDir(path string) error {
 	err := os.MkdirAll(path, 0777)
 	if err != nil {
-		log.Printf("logfile makeDir failed: %s, %s", path, err.Error())
+		fmt.Printf("logfile makeDir failed: %s, %s\n", path, err.Error())
 	}
 	return err
 }
@@ -245,7 +377,7 @@ func (w *FileWriter) Init(now time.Time) {
 			currdir += now.Format(w.DirFormat)
 		}
 		if err := w.makeDir(currdir); err != nil {
-			log.Printf("logfile init mkdir(%s) failed: %v", w.RootDir, err)
+			fmt.Printf("logfile init mkdir(%s) failed: %v\n", w.RootDir, err)
 		}
 		if !w.SaveEach && w.EnableBufio {
 			go func() {

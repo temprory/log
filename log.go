@@ -8,11 +8,13 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	LEVEL_DEBUG = iota
+	LEVEL_PRINT = iota
+	LEVEL_DEBUG
 	LEVEL_INFO
 	LEVEL_WARN
 	LEVEL_ERROR
@@ -77,13 +79,46 @@ func init() {
 	DefaultLogger.depth = DefaultLogDepth + 1
 }
 
+type Log struct {
+	Now    time.Time
+	Depth  int
+	Level  int
+	Value  string
+	Logger *Logger
+}
+
+type ILogWriter interface {
+	WriteLog(log *Log) (n int, err error)
+}
+
+type LogWriter struct {
+	writers []ILogWriter
+}
+
+func (w *LogWriter) WriteLog(log *Log) (n int, err error) {
+	for _, v := range w.writers {
+		v.WriteLog(log)
+	}
+	return 0, nil
+}
+
+func MultiLogWriter(writers ...interface{}) ILogWriter {
+	w := &LogWriter{}
+	for _, v := range writers {
+		w.writers = append(w.writers, v.(ILogWriter))
+	}
+	return w
+}
+
 type Logger struct {
-	Writer   io.Writer
-	depth    int
-	Level    int
-	Layout   string
-	Formater func(lvl int, format string, v ...interface{}) string
-	FullPath bool
+	sync.Mutex
+	Writer    io.Writer
+	LogWriter ILogWriter
+	depth     int
+	Level     int
+	Layout    string
+	Formater  func(log *Log) string
+	FullPath  bool
 	// filepaths []string
 }
 
@@ -103,49 +138,119 @@ type Logger struct {
 // 	}
 // }
 
-func (logger *Logger) Printf(fmtstr string, v ...interface{}) {
-	fmt.Fprintf(logger.Writer, fmtstr, v...)
+func (logger *Logger) Printf(format string, v ...interface{}) {
+	logger.Lock()
+	if logger.Writer != nil {
+		fmt.Fprintf(logger.Writer, fmt.Sprintf(format, v...))
+	}
+	if logger.LogWriter != nil {
+		log := &Log{time.Time{}, logger.depth, LEVEL_PRINT, fmt.Sprintf(format, v...), logger}
+		logger.LogWriter.WriteLog(log)
+	}
+	logger.Unlock()
 }
 
 func (logger *Logger) Println(v ...interface{}) {
-	fmt.Fprintln(logger.Writer, v...)
+	logger.Lock()
+	if logger.Writer != nil {
+		fmt.Fprintln(logger.Writer, v...)
+	}
+	if logger.LogWriter != nil {
+		log := &Log{time.Time{}, logger.depth, LEVEL_PRINT, fmt.Sprintln(v...), logger}
+		logger.LogWriter.WriteLog(log)
+	}
+	logger.Unlock()
 }
 
 func (logger *Logger) Debug(format string, v ...interface{}) {
 	if LEVEL_DEBUG >= logger.Level {
-		fmt.Fprintln(logger.Writer, logger.Formater(LEVEL_DEBUG, format, v...))
+		logger.Lock()
+		now := time.Now()
+		log := &Log{now, logger.depth, LEVEL_DEBUG, fmt.Sprintf(format, v...), logger}
+		if logger.Writer != nil {
+			fmt.Fprintln(logger.Writer, logger.Formater(log))
+		}
+		logger.Unlock()
+		if logger.LogWriter != nil {
+			logger.LogWriter.WriteLog(log)
+		}
 	}
 }
 
 func (logger *Logger) Info(format string, v ...interface{}) {
 	if LEVEL_INFO >= logger.Level {
-		fmt.Fprintln(logger.Writer, logger.Formater(LEVEL_INFO, format, v...))
+		logger.Lock()
+		now := time.Now()
+		log := &Log{now, logger.depth, LEVEL_INFO, fmt.Sprintf(format, v...), logger}
+		if logger.Writer != nil {
+			fmt.Fprintln(logger.Writer, logger.Formater(log))
+		}
+		logger.Unlock()
+		if logger.LogWriter != nil {
+			logger.LogWriter.WriteLog(log)
+		}
 	}
 }
 
 func (logger *Logger) Warn(format string, v ...interface{}) {
 	if LEVEL_WARN >= logger.Level {
-		fmt.Fprintln(logger.Writer, logger.Formater(LEVEL_WARN, format, v...))
+		logger.Lock()
+		now := time.Now()
+		log := &Log{now, logger.depth, LEVEL_WARN, fmt.Sprintf(format, v...), logger}
+		if logger.Writer != nil {
+			fmt.Fprintln(logger.Writer, logger.Formater(log))
+		}
+		logger.Unlock()
+		if logger.LogWriter != nil {
+			logger.LogWriter.WriteLog(log)
+		}
 	}
 }
 
 func (logger *Logger) Error(format string, v ...interface{}) {
 	if LEVEL_ERROR >= logger.Level {
-		fmt.Fprintln(logger.Writer, logger.Formater(LEVEL_ERROR, format, v...))
+		logger.Lock()
+		now := time.Now()
+		log := &Log{now, logger.depth, LEVEL_ERROR, fmt.Sprintf(format, v...), logger}
+		if logger.Writer != nil {
+			fmt.Fprintln(logger.Writer, logger.Formater(log))
+		}
+		logger.Unlock()
+		if logger.LogWriter != nil {
+			logger.LogWriter.WriteLog(log)
+		}
 	}
 }
 
 func (logger *Logger) Panic(format string, v ...interface{}) {
 	if LEVEL_PANIC >= logger.Level {
-		s := logger.Formater(LEVEL_PANIC, format, v...)
-		fmt.Fprintln(logger.Writer, s)
+		logger.Lock()
+		now := time.Now()
+		log := &Log{now, logger.depth, LEVEL_PANIC, fmt.Sprintf(format, v...), logger}
+		s := logger.Formater(log)
+		if logger.Writer != nil {
+			fmt.Fprintln(logger.Writer, s)
+		}
+		logger.Unlock()
+		if logger.LogWriter != nil {
+			logger.LogWriter.WriteLog(log)
+		}
 		panic(errors.New(s))
 	}
 }
 
 func (logger *Logger) Fatal(format string, v ...interface{}) {
 	if LEVEL_FATAL >= logger.Level {
-		fmt.Fprintln(logger.Writer, logger.Formater(LEVEL_FATAL, format, v...))
+		logger.Lock()
+		now := time.Now()
+		log := &Log{now, logger.depth, LEVEL_FATAL, fmt.Sprintf(format, v...), logger}
+		if logger.Writer != nil {
+			fmt.Fprintln(logger.Writer, logger.Formater(log))
+		}
+		logger.Unlock()
+		if logger.LogWriter != nil {
+			logger.LogWriter.WriteLog(log)
+		}
 		os.Exit(-1)
 	}
 }
@@ -162,13 +267,16 @@ func (logger *Logger) SetOutput(out io.Writer) {
 	logger.Writer = out
 }
 
-func (logger *Logger) SetFormater(f func(lvl int, format string, v ...interface{}) string) {
+func (logger *Logger) SetStructOutput(out ILogWriter) {
+	logger.LogWriter = out
+}
+
+func (logger *Logger) SetFormater(f func(log *Log) string) {
 	logger.Formater = f
 }
 
-func (logger *Logger) defaultLogFormater(lvl int, format string, v ...interface{}) string {
-	now := time.Now()
-	_, file, line, ok := runtime.Caller(logger.depth)
+func (logger *Logger) defaultLogFormater(log *Log) string {
+	_, file, line, ok := runtime.Caller(log.Depth)
 	if !ok {
 		file = "???"
 		line = -1
@@ -189,19 +297,19 @@ func (logger *Logger) defaultLogFormater(lvl int, format string, v ...interface{
 		}
 	}
 
-	switch lvl {
+	switch log.Level {
 	case LEVEL_DEBUG:
-		return strings.Join([]string{now.Format(logger.Layout), fmt.Sprintf(" [Debug] [%s:%d] ", file, line), fmt.Sprintf(format, v...)}, "")
+		return strings.Join([]string{log.Now.Format(logger.Layout), fmt.Sprintf(" [Debug] [%s:%d] ", file, line), log.Value}, "")
 	case LEVEL_INFO:
-		return strings.Join([]string{now.Format(logger.Layout), fmt.Sprintf(" [ Info] [%s:%d] ", file, line), fmt.Sprintf(format, v...)}, "")
+		return strings.Join([]string{log.Now.Format(logger.Layout), fmt.Sprintf(" [ Info] [%s:%d] ", file, line), log.Value}, "")
 	case LEVEL_WARN:
-		return strings.Join([]string{now.Format(logger.Layout), fmt.Sprintf(" [ Warn] [%s:%d] ", file, line), fmt.Sprintf(format, v...)}, "")
+		return strings.Join([]string{log.Now.Format(logger.Layout), fmt.Sprintf(" [ Warn] [%s:%d] ", file, line), log.Value}, "")
 	case LEVEL_ERROR:
-		return strings.Join([]string{now.Format(logger.Layout), fmt.Sprintf(" [Error] [%s:%d] ", file, line), fmt.Sprintf(format, v...)}, "")
+		return strings.Join([]string{log.Now.Format(logger.Layout), fmt.Sprintf(" [Error] [%s:%d] ", file, line), log.Value}, "")
 	case LEVEL_PANIC:
-		return strings.Join([]string{now.Format(logger.Layout), fmt.Sprintf(" [Panic] [%s:%d] ", file, line), fmt.Sprintf(format, v...)}, "")
+		return strings.Join([]string{log.Now.Format(logger.Layout), fmt.Sprintf(" [Panic] [%s:%d] ", file, line), log.Value}, "")
 	case LEVEL_FATAL:
-		return strings.Join([]string{now.Format(logger.Layout), fmt.Sprintf(" [Fatal] [%s:%d] ", file, line), fmt.Sprintf(format, v...)}, "")
+		return strings.Join([]string{log.Now.Format(logger.Layout), fmt.Sprintf(" [Fatal] [%s:%d] ", file, line), log.Value}, "")
 	default:
 	}
 	return ""
@@ -252,7 +360,11 @@ func SetOutput(out io.Writer) {
 	DefaultLogger.SetOutput(out)
 }
 
-func SetFormater(f func(lvl int, format string, v ...interface{}) string) {
+func SetStructOutput(out ILogWriter) {
+	DefaultLogger.SetStructOutput(out)
+}
+
+func SetFormater(f func(log *Log) string) {
 	DefaultLogger.SetFormater(f)
 }
 
