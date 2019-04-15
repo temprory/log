@@ -35,6 +35,8 @@ var (
 	filepaths = []string{}
 
 	DefaultLogger = NewLogger()
+
+	BuildDir = ""
 )
 
 func init() {
