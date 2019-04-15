@@ -415,7 +415,7 @@ func NewLogger() *Logger {
 		depth:    DefaultLogDepth,
 		Writer:   DefaultLogWriter,
 		Layout:   DefaultLogTimeLayout,
-		FullPath: false,
+		FullPath: BuildDir != "",
 		//filepaths: append([]string{}, filepaths...),
 	}
 	logger.Formater = logger.defaultLogFormater
