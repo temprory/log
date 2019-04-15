@@ -76,6 +76,10 @@ func init() {
 		}
 	}
 
+	if BuildDir != "" {
+		filepaths = append([]string{BuildDir}, filepaths...)
+	}
+
 	// fmt.Println("--- filepaths:", filepaths)
 
 	DefaultLogger.depth = DefaultLogDepth + 1
