@@ -108,7 +108,7 @@ func (w *LogWriter) WriteLog(log *Log) (n int, err error) {
 	return 0, nil
 }
 
-func MultiLogWriter(writers ...interface{}) ILogWriter {
+func MultiLogWriter(writers ...ILogWriter) ILogWriter {
 	w := &LogWriter{}
 	for _, v := range writers {
 		w.writers = append(w.writers, v.(ILogWriter))

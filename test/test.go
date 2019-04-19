@@ -19,8 +19,9 @@ func main() {
 	out := io.MultiWriter(os.Stdout)
 	log.SetOutput(out)
 
-	writer := log.MultiLogWriter(fileWriter)
-	log.SetStructOutput(writer)
+	// writer := log.MultiLogWriter(fileWriter)
+	// log.SetStructOutput(writer)
+	log.SetStructOutput(fileWriter)
 
 	log.SetLevel(log.LEVEL_WARN)
 
