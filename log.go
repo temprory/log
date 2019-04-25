@@ -289,11 +289,15 @@ func (logger *Logger) defaultLogFormater(log *Log) string {
 	} else {
 		if logger.FullPath {
 			for _, v := range filepaths {
-				tmp := strings.Replace(file, v, "", 1)
-				if tmp != file {
-					file = tmp
+				if strings.HasPrefix(file, v) {
+					file = file[len(v):]
 					break
 				}
+				// tmp := strings.Replace(file, v, "", 1)
+				// if tmp != file {
+				// 	file = tmp
+				// 	break
+				// }
 			}
 		} else {
 			pos := strings.LastIndex(file, "/")
@@ -415,7 +419,7 @@ func NewLogger() *Logger {
 		depth:    DefaultLogDepth,
 		Writer:   DefaultLogWriter,
 		Layout:   DefaultLogTimeLayout,
-		FullPath: BuildDir != "",
+		FullPath: true, //BuildDir != "",
 		//filepaths: append([]string{}, filepaths...),
 	}
 	logger.Formater = logger.defaultLogFormater
