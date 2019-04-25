@@ -77,6 +77,13 @@ func init() {
 	}
 
 	if BuildDir != "" {
+		if strings.HasSuffix(BuildDir, "/") {
+			BuildDir = BuildDir[:len(BuildDir)-1]
+		}
+		pos := strings.LastIndex(BuildDir, "/")
+		if pos > 0 {
+			BuildDir = BuildDir[:pos+1]
+		}
 		filepaths = append([]string{BuildDir}, filepaths...)
 	}
 
