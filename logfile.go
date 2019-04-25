@@ -379,12 +379,15 @@ func (w *FileWriter) Init(now time.Time) {
 		if err := w.makeDir(currdir); err != nil {
 			fmt.Printf("logfile init mkdir(%s) failed: %v\n", w.RootDir, err)
 		}
-		if !w.SaveEach && w.EnableBufio {
+
+		if !w.SaveEach { // && w.EnableBufio {
 			go func() {
 				defer func() {
 					recover()
 				}()
-
+				if w.SyncInterval <= 0 {
+					w.SyncInterval = time.Second * 5
+				}
 				w.logticker = time.NewTicker(w.SyncInterval)
 				for {
 					_, ok := <-w.logticker.C
