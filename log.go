@@ -45,24 +45,24 @@ func init() {
 		filepaths = append(filepaths, wd+`/`)
 	}
 
-	gopath := os.Getenv("GOPATH")
-	if len(gopath) > 0 {
-		if runtime.GOOS == "windows" {
-			arr := strings.Split(gopath, ";")
-			if len(arr) > 1 {
-				filepaths = append(filepaths, arr...)
-			} else {
-				filepaths = append(filepaths, gopath)
-			}
-		} else {
-			arr := strings.Split(gopath, ":")
-			if len(arr) > 1 {
-				filepaths = append(filepaths, arr...)
-			} else {
-				filepaths = append(filepaths, gopath)
-			}
-		}
-	}
+	// gopath := os.Getenv("GOPATH")
+	// if len(gopath) > 0 {
+	// 	if runtime.GOOS == "windows" {
+	// 		arr := strings.Split(gopath, ";")
+	// 		if len(arr) > 1 {
+	// 			filepaths = append(filepaths, arr...)
+	// 		} else {
+	// 			filepaths = append(filepaths, gopath)
+	// 		}
+	// 	} else {
+	// 		arr := strings.Split(gopath, ":")
+	// 		if len(arr) > 1 {
+	// 			filepaths = append(filepaths, arr...)
+	// 		} else {
+	// 			filepaths = append(filepaths, gopath)
+	// 		}
+	// 	}
+	// }
 
 	// goroot := os.Getenv("GOROOT")
 	// if len(gopath) > 0 {
@@ -378,6 +378,13 @@ func SetLogTimeFormat(layout string) {
 	DefaultLogger.SetLogTimeFormat(layout)
 }
 
+func SetBuildDir(dir string) {
+	if dir != "" {
+		BuildDir = dir
+		filepaths = append([]string{BuildDir}, filepaths...)
+	}
+}
+
 func LogWithFormater(lvl int, depth int, layout string, format string, v ...interface{}) string {
 	now := time.Now()
 	_, file, line, ok := runtime.Caller(depth)
@@ -415,7 +422,7 @@ func NewLogger() *Logger {
 		depth:    DefaultLogDepth,
 		Writer:   DefaultLogWriter,
 		Layout:   DefaultLogTimeLayout,
-		FullPath: BuildDir != "",
+		FullPath: false,
 		//filepaths: append([]string{}, filepaths...),
 	}
 	logger.Formater = logger.defaultLogFormater
