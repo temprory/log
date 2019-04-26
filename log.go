@@ -40,29 +40,29 @@ var (
 )
 
 func init() {
-	wd, err := os.Getwd()
-	if err == nil {
-		filepaths = append(filepaths, wd+`/`)
-	}
-
-	// gopath := os.Getenv("GOPATH")
-	// if len(gopath) > 0 {
-	// 	if runtime.GOOS == "windows" {
-	// 		arr := strings.Split(gopath, ";")
-	// 		if len(arr) > 1 {
-	// 			filepaths = append(filepaths, arr...)
-	// 		} else {
-	// 			filepaths = append(filepaths, gopath)
-	// 		}
-	// 	} else {
-	// 		arr := strings.Split(gopath, ":")
-	// 		if len(arr) > 1 {
-	// 			filepaths = append(filepaths, arr...)
-	// 		} else {
-	// 			filepaths = append(filepaths, gopath)
-	// 		}
-	// 	}
+	// wd, err := os.Getwd()
+	// if err == nil {
+	// 	filepaths = append(filepaths, wd+`/`)
 	// }
+
+	gopath := os.Getenv("GOPATH")
+	if len(gopath) > 0 {
+		if runtime.GOOS == "windows" {
+			arr := strings.Split(gopath, ";")
+			if len(arr) > 1 {
+				filepaths = append(filepaths, arr...)
+			} else {
+				filepaths = append(filepaths, gopath)
+			}
+		} else {
+			arr := strings.Split(gopath, ":")
+			if len(arr) > 1 {
+				filepaths = append(filepaths, arr...)
+			} else {
+				filepaths = append(filepaths, gopath)
+			}
+		}
+	}
 
 	// goroot := os.Getenv("GOROOT")
 	// if len(gopath) > 0 {
@@ -83,8 +83,8 @@ func init() {
 		pos := strings.LastIndex(BuildDir, "/")
 		if pos > 0 {
 			BuildDir = BuildDir[:pos+1]
+			filepaths = append([]string{BuildDir}, filepaths...)
 		}
-		filepaths = append([]string{BuildDir}, filepaths...)
 	}
 
 	// fmt.Println("--- filepaths:", filepaths)
@@ -388,7 +388,14 @@ func SetLogTimeFormat(layout string) {
 func SetBuildDir(dir string) {
 	if dir != "" {
 		BuildDir = dir
-		filepaths = append([]string{BuildDir}, filepaths...)
+		if strings.HasSuffix(BuildDir, "/") {
+			BuildDir = BuildDir[:len(BuildDir)-1]
+		}
+		pos := strings.LastIndex(BuildDir, "/")
+		if pos > 0 {
+			BuildDir = BuildDir[:pos+1]
+			filepaths = append([]string{BuildDir}, filepaths...)
+		}
 	}
 }
 
