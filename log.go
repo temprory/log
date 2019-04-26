@@ -24,6 +24,8 @@ const (
 )
 
 var (
+	BuildDir = ""
+
 	logsep   = ""
 	inittime = time.Now()
 
@@ -35,15 +37,9 @@ var (
 	filepaths = []string{}
 
 	DefaultLogger = NewLogger()
-
-	BuildDir = ""
 )
 
 func init() {
-	// wd, err := os.Getwd()
-	// if err == nil {
-	// 	filepaths = append(filepaths, wd+`/`)
-	// }
 
 	gopath := os.Getenv("GOPATH")
 	if len(gopath) > 0 {
@@ -64,19 +60,34 @@ func init() {
 		}
 	}
 
-	// goroot := os.Getenv("GOROOT")
-	// if len(gopath) > 0 {
-	// 	filepaths = append(filepaths, goroot)
-	// }
+	goroot := os.Getenv("GOROOT")
+	if len(gopath) > 0 {
+		filepaths = append(filepaths, goroot)
+	}
 
 	for i, v := range filepaths {
 		filepaths[i] = strings.Replace(v, `\`, `/`, -1)
-		if i > 0 {
-			filepaths[i] += `/src/`
+		if strings.HasSuffix(filepaths[i], "/") {
+			filepaths[i] = filepaths[i][:len(filepaths[i])-1]
+		}
+		filepaths[i] += `/src/`
+	}
+
+	wd, err := os.Getwd()
+	if err == nil {
+		wd = strings.Replace(wd, `\`, `/`, -1)
+		if strings.HasSuffix(wd, "/") {
+			wd = wd[:len(wd)-1]
+		}
+		pos := strings.LastIndex(wd, "/")
+		if pos > 0 {
+			wd = wd[:pos+1]
+			filepaths = append([]string{wd}, filepaths...)
 		}
 	}
 
 	if BuildDir != "" {
+		BuildDir = strings.Replace(BuildDir, `\`, `/`, -1)
 		if strings.HasSuffix(BuildDir, "/") {
 			BuildDir = BuildDir[:len(BuildDir)-1]
 		}
@@ -436,7 +447,7 @@ func NewLogger() *Logger {
 		depth:    DefaultLogDepth,
 		Writer:   DefaultLogWriter,
 		Layout:   DefaultLogTimeLayout,
-		FullPath: false,
+		FullPath: BuildDir != "",
 		//filepaths: append([]string{}, filepaths...),
 	}
 	logger.Formater = logger.defaultLogFormater
