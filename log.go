@@ -107,6 +107,8 @@ type Log struct {
 	Now    time.Time
 	Depth  int
 	Level  int
+	Line   int
+	File   string
 	Value  string
 	Logger *Logger
 }
@@ -168,7 +170,12 @@ func (logger *Logger) Printf(format string, v ...interface{}) {
 		fmt.Fprintf(logger.Writer, fmt.Sprintf(format, v...))
 	}
 	if logger.LogWriter != nil {
-		log := &Log{time.Time{}, logger.depth, LEVEL_PRINT, fmt.Sprintf(format, v...), logger}
+		log := &Log{
+			Depth:  logger.depth,
+			Level:  LEVEL_PRINT,
+			Value:  fmt.Sprintf(format, v...),
+			Logger: logger,
+		}
 		logger.LogWriter.WriteLog(log)
 	}
 	logger.Unlock()
@@ -180,7 +187,12 @@ func (logger *Logger) Println(v ...interface{}) {
 		fmt.Fprintln(logger.Writer, v...)
 	}
 	if logger.LogWriter != nil {
-		log := &Log{time.Time{}, logger.depth, LEVEL_PRINT, fmt.Sprintln(v...), logger}
+		log := &Log{
+			Depth:  logger.depth,
+			Level:  LEVEL_PRINT,
+			Value:  fmt.Sprintln(v...),
+			Logger: logger,
+		}
 		logger.LogWriter.WriteLog(log)
 	}
 	logger.Unlock()
@@ -190,7 +202,13 @@ func (logger *Logger) Debug(format string, v ...interface{}) {
 	if LEVEL_DEBUG >= logger.Level {
 		logger.Lock()
 		now := time.Now()
-		log := &Log{now, logger.depth, LEVEL_DEBUG, fmt.Sprintf(format, v...), logger}
+		log := &Log{
+			Now:    now,
+			Depth:  logger.depth,
+			Level:  LEVEL_DEBUG,
+			Value:  fmt.Sprintf(format, v...),
+			Logger: logger,
+		}
 		if logger.Writer != nil {
 			fmt.Fprintln(logger.Writer, logger.Formater(log))
 		}
@@ -205,7 +223,13 @@ func (logger *Logger) Info(format string, v ...interface{}) {
 	if LEVEL_INFO >= logger.Level {
 		logger.Lock()
 		now := time.Now()
-		log := &Log{now, logger.depth, LEVEL_INFO, fmt.Sprintf(format, v...), logger}
+		log := &Log{
+			Now:    now,
+			Depth:  logger.depth,
+			Level:  LEVEL_INFO,
+			Value:  fmt.Sprintf(format, v...),
+			Logger: logger,
+		}
 		if logger.Writer != nil {
 			fmt.Fprintln(logger.Writer, logger.Formater(log))
 		}
@@ -220,7 +244,13 @@ func (logger *Logger) Warn(format string, v ...interface{}) {
 	if LEVEL_WARN >= logger.Level {
 		logger.Lock()
 		now := time.Now()
-		log := &Log{now, logger.depth, LEVEL_WARN, fmt.Sprintf(format, v...), logger}
+		log := &Log{
+			Now:    now,
+			Depth:  logger.depth,
+			Level:  LEVEL_WARN,
+			Value:  fmt.Sprintf(format, v...),
+			Logger: logger,
+		}
 		if logger.Writer != nil {
 			fmt.Fprintln(logger.Writer, logger.Formater(log))
 		}
@@ -235,7 +265,13 @@ func (logger *Logger) Error(format string, v ...interface{}) {
 	if LEVEL_ERROR >= logger.Level {
 		logger.Lock()
 		now := time.Now()
-		log := &Log{now, logger.depth, LEVEL_ERROR, fmt.Sprintf(format, v...), logger}
+		log := &Log{
+			Now:    now,
+			Depth:  logger.depth,
+			Level:  LEVEL_ERROR,
+			Value:  fmt.Sprintf(format, v...),
+			Logger: logger,
+		}
 		if logger.Writer != nil {
 			fmt.Fprintln(logger.Writer, logger.Formater(log))
 		}
@@ -250,7 +286,13 @@ func (logger *Logger) Panic(format string, v ...interface{}) {
 	if LEVEL_PANIC >= logger.Level {
 		logger.Lock()
 		now := time.Now()
-		log := &Log{now, logger.depth, LEVEL_PANIC, fmt.Sprintf(format, v...), logger}
+		log := &Log{
+			Now:    now,
+			Depth:  logger.depth,
+			Level:  LEVEL_PANIC,
+			Value:  fmt.Sprintf(format, v...),
+			Logger: logger,
+		}
 		s := logger.Formater(log)
 		if logger.Writer != nil {
 			fmt.Fprintln(logger.Writer, s)
@@ -267,7 +309,13 @@ func (logger *Logger) Fatal(format string, v ...interface{}) {
 	if LEVEL_FATAL >= logger.Level {
 		logger.Lock()
 		now := time.Now()
-		log := &Log{now, logger.depth, LEVEL_FATAL, fmt.Sprintf(format, v...), logger}
+		log := &Log{
+			Now:    now,
+			Depth:  logger.depth,
+			Level:  LEVEL_FATAL,
+			Value:  fmt.Sprintf(format, v...),
+			Logger: logger,
+		}
 		if logger.Writer != nil {
 			fmt.Fprintln(logger.Writer, logger.Formater(log))
 		}
@@ -321,6 +369,8 @@ func (logger *Logger) defaultLogFormater(log *Log) string {
 		}
 	}
 
+	log.File = file
+	log.Line = line
 	switch log.Level {
 	case LEVEL_DEBUG:
 		return strings.Join([]string{log.Now.Format(logger.Layout), fmt.Sprintf(" [Debug] [%s:%d] ", file, line), log.Value}, "")
