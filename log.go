@@ -103,14 +103,36 @@ func init() {
 	DefaultLogger.depth = DefaultLogDepth + 1
 }
 
+func LevelText(lvl int) string {
+	switch lvl {
+	case LEVEL_PRINT:
+		return "Print"
+	case LEVEL_DEBUG:
+		return "Debug"
+	case LEVEL_INFO:
+		return "Info"
+	case LEVEL_WARN:
+		return "Warn"
+	case LEVEL_ERROR:
+		return "Error"
+	case LEVEL_PANIC:
+		return "Panic"
+	case LEVEL_FATAL:
+		return "Fatal"
+	case LEVEL_NONE:
+	default:
+	}
+	return "Unknown LVL"
+}
+
 type Log struct {
-	Now    time.Time
-	Depth  int
-	Level  int
-	Line   int
-	File   string
-	Value  string
-	Logger *Logger
+	Now    time.Time `json:"Now"`
+	Depth  int       `json:"Depth"`
+	Level  int       `json:"Level"`
+	Line   int       `json:"Line"`
+	File   string    `json:"File"`
+	Value  string    `json:"Value"`
+	Logger *Logger   `json:"-"`
 }
 
 type ILogWriter interface {
