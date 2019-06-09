@@ -96,7 +96,6 @@ func init() {
 			BuildDir = BuildDir[:pos+1]
 			filepaths = append([]string{BuildDir}, filepaths...)
 		}
-		fmt.Println("----- BuildDir:", BuildDir)
 	}
 
 	// fmt.Println("--- filepaths:", filepaths)
