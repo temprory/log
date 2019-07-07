@@ -24,7 +24,7 @@ type Writer struct{}
 func (w *Writer) WriteLog(log *tlog.Log) (n int, err error) {
 	value := log.Value
 
-	_, file, line, ok := runtime.Caller(log.Depth + 1)
+	_, file, line, ok := runtime.Caller(log.Depth)
 	if !ok {
 		file = "???"
 		line = -1
@@ -52,7 +52,7 @@ func (w *Writer) WriteLog(log *tlog.Log) (n int, err error) {
 		value = strings.Join([]string{log.Now.Format(log.Logger.Layout), fmt.Sprintf(" [Fatal] [%s:%d] ", file, line), log.Value, "\n"}, "")
 	default:
 	}
-	fmt.Println("--- log: ", log.File, log.Line, log.Depth, file, line)
+	//fmt.Println("--- log: ", log.File, log.Line, log.Depth, file, line)
 	log.File = file
 	log.Line = line
 
